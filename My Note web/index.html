@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a2342; /* Dark blue */
+            background-image: url(cloud.png);
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+            color: #f8f8ff;      /* Light text for contrast */
+            height: 100vh;
+            width: 100vw;
+        }
+        .container {
+            background: rgba(255,255,255,0.08); /* Subtle overlay */
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            border-radius: 0;
+            padding: 24px 8px;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .top-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .search-bar {
+            width: 96%;              /* Not full width, leaves space at sides */
+            max-width: 500px;        /* Optional: limit max width on large screens */
+            margin: 0 auto;          /* Center horizontally */
+            padding: 10px 36px 10px 12px; /* Add right padding for icon */
+            border-radius: 12px;     /* More curved edges */
+            border: 1px solid #ccc;
+            font-size: 1em;
+            display: block;          /* Ensures margin auto works */
+            box-sizing: border-box;
+            background: #fff
+                url('data:image/svg+xml;utf8,<svg fill="gray" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99a1 1 0 001.41-1.41l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z"/></svg>')
+                no-repeat right 12px center/18px 18px;
+        }
+        .note-input-row {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+            width: 96%;
+            max-width: 500px;
+            margin: 0 auto 0 0;           /* Align left */
+            background: rgba(255,255,255,0.4);
+            border-radius: 12px;
+            padding: 6px 8px;
+            box-sizing: border-box;
+        }
+        #noteInput {
+            flex: 1;
+            padding: 16px 8px;            /* Increase height */
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
+        #tickBtn {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;          /* smaller button */
+            height: 36px;
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        #tickBtn:hover {
+            background: #218838;
+        }
+        #entries {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .entry {
+            background: #173f5f;      /* Slightly lighter blue for notes */
+            color: #f8f8ff;           /* Light text */
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 0;
+            position: relative;
+            min-width: 220px;
+            max-width: 320px;
+            flex: 1 1 220px;
+            display: flex;
+            flex-direction: column;
+        }
+        .entry-date {
+            color: #a7c7e7;           /* Soft blue for date */
+            font-size: 0.85em;
+            margin-bottom: 4px;
+        }
+        .edit-btn, .update-btn, .cancel-btn {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 4px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .edit-btn:hover, .update-btn:hover, .cancel-btn:hover {
+            background: #0056b3;
+        }
+        .update-btn { background: #28a745; }
+        .update-btn:hover { background: #218838; }
+        .cancel-btn { background: #dc3545; }
+        .cancel-btn:hover { background: #a71d2a; }
+        .entry-controls {
+            margin-top: 6px;
+        }
+        @media (max-width: 600px) {
+            .note-input-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+            #entries {
+                flex-direction: column;
+            }
+            .entry {
+                max-width: 100%;
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <input type="text" id="searchBar" class="search-bar" placeholder="Search notes...">
+            <div class="note-input-row">
+                <input type="text" id="noteInput" placeholder="Enter your note..." autocomplete="off" />
+                <button id="tickBtn" title="Save Note">&#10003;</button>
+            </div>
+        </div>
+        <div id="entries"></div>
+    </div>
+    <script>
+        // Helper to get today's date in DD/MM/YYYY
+        function getCurrentDate() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        // Load entries from localStorage
+        function loadEntries() {
+            return JSON.parse(localStorage.getItem('notesEntries') || '[]');
+        }
+
+        // Save entries to localStorage
+        function saveEntries(entries) {
+            localStorage.setItem('notesEntries', JSON.stringify(entries));
+        }
+
+        // Render all entries, with optional filter
+        function renderEntries(filter = '') {
+            const entriesDiv = document.getElementById('entries');
+            entriesDiv.innerHTML = '';
+            const entries = loadEntries();
+            entries.forEach((entry, idx) => {
+                if (filter && !entry.text.toLowerCase().includes(filter.toLowerCase())) return;
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'entry';
+                entryDiv.setAttribute('data-idx', idx);
+
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'entry-date';
+                dateDiv.textContent = entry.date;
+
+                const textDiv = document.createElement('div');
+                textDiv.className = 'entry-text';
+                textDiv.textContent = entry.text;
+
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'entry-controls';
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'edit-btn';
+                editBtn.textContent = 'Edit';
+                editBtn.onclick = () => startEditEntry(idx, filter);
+
+                controlsDiv.appendChild(editBtn);
+
+                entryDiv.appendChild(dateDiv);
+                entryDiv.appendChild(textDiv);
+                entryDiv.appendChild(controlsDiv);
+
+                entriesDiv.appendChild(entryDiv);
+            });
+        }
+
+        // Save new note
+        document.getElementById('tickBtn').onclick = function() {
+            const noteInput = document.getElementById('noteInput');
+            const text = noteInput.value.trim();
+            if (!text) return;
+            const entries = loadEntries();
+            entries.push({
+                text,
+                date: getCurrentDate()
+            });
+            saveEntries(entries);
+            noteInput.value = '';
+            renderEntries(document.getElementById('searchBar').value);
+        };
+
+        // Enter key also saves note
+        document.getElementById('noteInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('tickBtn').click();
+            }
+        });
+
+        // Edit entry
+        function startEditEntry(idx, filter) {
+            const entries = loadEntries();
+            const entryDivs = document.querySelectorAll('.entry');
+            const entryDiv = entryDivs[idx];
+            const entry = entries[idx];
+
+            // Replace text with input
+            const textDiv = entryDiv.querySelector('.entry-text');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = entry.text;
+            input.style.width = '90%';
+            textDiv.replaceWith(input);
+
+            // Replace controls
+            const controlsDiv = entryDiv.querySelector('.entry-controls');
+            controlsDiv.innerHTML = '';
+
+            const updateBtn = document.createElement('button');
+            updateBtn.className = 'update-btn';
+            updateBtn.textContent = 'Update';
+            updateBtn.onclick = function() {
+                const newText = input.value.trim();
+                if (!newText) return;
+                entries[idx].text = newText;
+                saveEntries(entries);
+                renderEntries(filter || document.getElementById('searchBar').value);
+            };
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-btn';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = function() {
+                renderEntries(filter || document.getElementById('searchBar').value);
+            };
+
+            controlsDiv.appendChild(updateBtn);
+            controlsDiv.appendChild(cancelBtn);
+        }
+
+        // Search functionality
+        document.getElementById('searchBar').addEventListener('input', function() {
+            renderEntries(this.value);
+        });
+
+        // On page load, render entries
+        window.onload = () => renderEntries();
+    </script>
+</body>
+</html>
